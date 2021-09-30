@@ -1,14 +1,14 @@
 package com.kent.sketchbook
 
 import android.graphics.*
-import android.graphics.drawable.ShapeDrawable
-import android.graphics.drawable.shapes.OvalShape
 import android.os.Bundle
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.SeekBar
 import androidx.appcompat.app.AppCompatActivity
 
 
@@ -27,6 +27,10 @@ class MainActivity : AppCompatActivity() {
     private var bitmap: Bitmap = Bitmap.createBitmap(1,1, Bitmap.Config.ARGB_8888)
     private var drawMode:DrawMode = DrawMode.PEN
 
+    private var stampSize = 1f
+    private var stampInterval = 1f
+    private var stampBitmap:Bitmap? = null
+
     private val TICKNESS50: Float = 50f
     private val TICKNESS40: Float = 40f
     private val TICKNESS30: Float = 30f
@@ -38,12 +42,42 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         val closeButton = findViewById<ImageView>(R.id.close)
-        val penLayout = findViewById<LinearLayout>(R.id.pen_layout)
-        val tickLayout = findViewById<LinearLayout>(R.id.tickness_layout)
-
         closeButton.setOnClickListener {
             finish()
         }
+
+        val penButton = findViewById<RadioButton>(R.id.pen)
+        penButton.setOnCheckedChangeListener { buttonView, isChecked ->
+            if (isChecked) {
+                selectMode(DrawMode.PEN)
+            }
+        }
+
+        val stampButton = findViewById<RadioButton>(R.id.stamp)
+        stampButton.setOnCheckedChangeListener { buttonView, isChecked ->
+            if (isChecked) {
+                selectMode(DrawMode.STAMP)
+            }
+        }
+
+        penButton.isChecked = true
+    }
+
+    private fun selectMode(mode: DrawMode) {
+        if (mode == DrawMode.PEN) {
+            findViewById<View>(R.id.layout_pen).visibility = View.VISIBLE
+            findViewById<View>(R.id.layout_stamp).visibility = View.GONE
+            initPenMode()
+        } else if (mode == DrawMode.STAMP) {
+            findViewById<View>(R.id.layout_pen).visibility = View.GONE
+            findViewById<View>(R.id.layout_stamp).visibility = View.VISIBLE
+            initStampMode()
+        }
+    }
+
+    private fun initPenMode() {
+        val penLayout = findViewById<LinearLayout>(R.id.pen_layout)
+        val tickLayout = findViewById<LinearLayout>(R.id.tickness_layout)
 
         for (i in 0 until penLayout.childCount) {
             try {
@@ -55,7 +89,7 @@ class MainActivity : AppCompatActivity() {
 
         for (i in 0 until tickLayout.childCount) {
             try {
-                ticknessSetting(tickLayout.getChildAt(i) as ImageView);
+                penTicknessSetting(tickLayout.getChildAt(i) as ImageView);
             } catch (e: Exception) {
 
             }
@@ -143,7 +177,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         x.setOnClickListener{
-            drawMode = DrawMode.PEN
             if (penColor != Color.TRANSPARENT) {
                 var view = findViewById<ImageView>(penId)
                 val beforeParams = view.layoutParams as ViewGroup.MarginLayoutParams
@@ -157,16 +190,13 @@ class MainActivity : AppCompatActivity() {
             params.setMargins(params.leftMargin, 0, params.rightMargin, params.bottomMargin)
             it.layoutParams = params;
 
-            var cf = PorterDuffColorFilter(penColor, PorterDuff.Mode.OVERLAY)
-
-            penTicknessColorSetting(cf)
-
+            penTicknessColorSetting(penColor)
         }
 
         return x
     }
 
-    private fun ticknessSetting(x: ImageView) {
+    private fun penTicknessSetting(x: ImageView) {
         var penTick = 0f
         when (x.id) {
             R.id.tick_max -> {
@@ -192,16 +222,115 @@ class MainActivity : AppCompatActivity() {
 
     }
 
-    public fun penTicknessColorSetting(colorFilter: ColorFilter) {
+    fun penTicknessColorSetting(color: Int) {
+        var drawable: Int = 0
+        when (color) {
+            Color.RED -> {
+                drawable = R.drawable.tickness_red
+            }
+            Color.YELLOW -> {
+                drawable = R.drawable.tickness_yellow
+            }
+            0xFFFFA500.toInt() -> {
+                drawable = R.drawable.tickness_orange
+            }
+            Color.GREEN -> {
+                drawable = R.drawable.tickness_green
+            }
+            Color.BLUE -> {
+                drawable = R.drawable.tickness_blue
+            }
+            Color.BLACK -> {
+                drawable = R.drawable.tickness_black
+            }
+            Color.WHITE -> {
+                drawable = R.drawable.tickness_eraser
+            }
+        }
 
-        var drawable: ShapeDrawable = ShapeDrawable(OvalShape())
-//        drawable.paint.colorFilter = colorFilter
-        //drawable.paint.color = color
+        findViewById<ImageView>(R.id.tick_max).setImageResource(drawable)
+        findViewById<ImageView>(R.id.tick_upper_mid).setImageResource(drawable)
+        findViewById<ImageView>(R.id.tick_mid).setImageResource(drawable)
+        findViewById<ImageView>(R.id.tick_under_mid).setImageResource(drawable)
+        findViewById<ImageView>(R.id.tick_min).setImageResource(drawable)
+    }
 
-        findViewById<ImageView>(R.id.tick_max).colorFilter = colorFilter
-        findViewById<ImageView>(R.id.tick_upper_mid).colorFilter = colorFilter
-        findViewById<ImageView>(R.id.tick_mid).colorFilter = colorFilter
-        findViewById<ImageView>(R.id.tick_under_mid).colorFilter = colorFilter
-        findViewById<ImageView>(R.id.tick_min).colorFilter = colorFilter
+    private fun initStampMode() {
+        val stampLayout = findViewById<LinearLayout>(R.id.stamp_layout)
+
+        for (i in 0 until stampLayout.childCount) {
+            try {
+                stampSetting(stampLayout.getChildAt(i) as ImageView);
+            } catch (e: Exception) {
+
+            }
+        }
+
+        val draw = findViewById<ImageView>(R.id.draw_area)
+        draw.setOnTouchListener{ view: View, motionEvent: MotionEvent ->
+            if (canvas == null && draw.width > 0 && draw.height > 0) {
+                bitmap = Bitmap.createBitmap(draw.width, draw.height, Bitmap.Config.ARGB_8888);
+                canvas = Canvas(bitmap)
+                canvas?.drawColor(Color.WHITE);
+                draw.setImageBitmap(bitmap)
+            }
+
+            if (stampBitmap == null || stampBitmap!!.width == 0 || stampBitmap!!.height == 0) {
+                false
+            }
+
+            when (motionEvent.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    var right = motionEvent.x.toInt() + ((stampBitmap!!.width * 0.3f).toInt())
+                    var bottom = motionEvent.y.toInt() + ((stampBitmap!!.height * 0.3f).toInt())
+                    var dst : Rect = Rect(motionEvent.x.toInt(), motionEvent.y.toInt(), right, bottom)
+                    canvas?.drawBitmap(stampBitmap!!, null, dst, null);
+                    //canvas?.drawBitmap(stampBitmap!!, motionEvent.x, motionEvent.y, null);
+                    draw.setImageBitmap(bitmap)
+                }
+//                MotionEvent.ACTION_MOVE -> {
+//                    var dst : Rect = Rect(motionEvent.x.toInt(), motionEvent.y.toInt(), ((stampBitmap!!.width * stampSize).toInt()), ((stampBitmap!!.height * stampSize).toInt()))
+//                    //canvas?.drawBitmap(stampBitmap!!, null, dst, null);
+//                    canvas?.drawBitmap(stampBitmap!!, motionEvent.x, motionEvent.y, null);
+//                    draw.setImageBitmap(bitmap)
+//                }
+                MotionEvent.ACTION_UP -> {
+                    //draw.setImageBitmap(bitmap)
+                }
+            }
+
+            true
+        }
+    }
+
+    private fun stampSetting(x: ImageView): ImageView {
+        var shape = 0
+        when (x.id) {
+            R.id.circle -> {
+                shape = R.drawable.circle
+            }
+            R.id.triangle -> {
+                shape = R.drawable.triangle
+            }
+            R.id.square -> {
+                shape = R.drawable.square
+            }
+            R.id.star -> {
+                shape = R.drawable.star
+            }
+            R.id.sun -> {
+                shape = R.drawable.sun
+            }
+            R.id.moon -> {
+                shape = R.drawable.moon
+            }
+        }
+
+        x.setOnClickListener{
+            stampBitmap = BitmapFactory.decodeResource(resources, shape)
+        }
+
+
+        return x
     }
 }

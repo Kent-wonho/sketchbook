@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@drawable/top_stamp" android:state_checked="false" />
+    <item android:drawable="@drawable/top_pencil" android:state_checked="false" />
     <item android:state_checked="true">
         <layer-list>
             <item android:drawable="@drawable/selected_back" />
-            <item android:drawable="@drawable/top_stamp" />
+            <item android:drawable="@drawable/top_pencil" />
         </layer-list>
     </item>
 </selector>
